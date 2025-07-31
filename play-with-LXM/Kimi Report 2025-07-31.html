@@ -1,0 +1,1321 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>向量数据库逆向技术研究报告</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --primary: #1e293b;
+            --secondary: #64748b;
+            --accent: #dc2626;
+            --muted: #f8fafc;
+            --border: #e2e8f0;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.7;
+            color: var(--primary);
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            overflow-x: hidden;
+        }
+        
+        .serif {
+            font-family: 'Crimson Text', serif;
+        }
+        
+        .hero-gradient {
+            background: linear-gradient(135deg, 
+                rgba(30, 41, 59, 0.95) 0%, 
+                rgba(51, 65, 85, 0.9) 50%, 
+                rgba(71, 85, 105, 0.85) 100%);
+        }
+        
+        .toc-fixed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background: rgba(248, 250, 252, 0.98);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 2rem 1.5rem;
+        }
+        
+        .main-content {
+            margin-left: 280px;
+            min-height: 100vh;
+        }
+        
+        .citation {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px dotted var(--accent);
+        }
+        
+        .citation:hover {
+            background: rgba(220, 38, 38, 0.1);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        
+        .bento-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .bento-item {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #fef2f2 0%, #fef7f7 100%);
+            border-left: 4px solid var(--accent);
+        }
+        
+        /* Mermaid chart styling */
+        .mermaid-container {
+            display: flex;
+            justify-content: center;
+            min-height: 300px;
+            max-height: 800px;
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mermaid-container .mermaid {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            cursor: grab;
+            transition: transform 0.3s ease;
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .mermaid-container .mermaid svg {
+            max-width: 100%;
+            height: 100%;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .mermaid-container .mermaid:active {
+            cursor: grabbing;
+        }
+
+        .mermaid-container.zoomed .mermaid {
+            height: 100%;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .mermaid-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .mermaid-control-btn {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #374151;
+            font-size: 14px;
+            min-width: 36px;
+            height: 36px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid-control-btn:hover {
+            background: #f8fafc;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .mermaid-control-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* Enhanced mermaid theme for better contrast and unified styling */
+        .mermaid .node rect,
+        .mermaid .node circle,
+        .mermaid .node ellipse,
+        .mermaid .node polygon {
+            stroke-width: 2px;
+        }
+        
+        .mermaid .edgePath .path {
+            stroke-width: 2px;
+        }
+        
+        .mermaid .edgeLabel {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 4px;
+            padding: 2px 6px;
+            border: 1px solid var(--border);
+        }
+        
+        /* Specific node styling for better contrast */
+        .mermaid .node[style*="fill:#ffecb3"] text,
+        .mermaid .node[style*="fill:#e8f5e8"] text,
+        .mermaid .node[style*="fill:#e3f2fd"] text {
+            fill: #1f2937 !important;
+            font-weight: 500 !important;
+        }
+        
+        @media (max-width: 1024px) {
+            .toc-fixed {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .bento-grid {
+                grid-template-columns: 1fr;
+            }
+            .mermaid-control-btn:not(.reset-zoom) {
+                display: none;
+            }
+            .mermaid-controls {
+                top: auto;
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero-gradient {
+                padding: 1rem !important;
+            }
+            .container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .bento-item {
+                padding: 1.5rem;
+            }
+            .mermaid-container {
+                padding: 15px;
+            }
+            .main-content img {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+  </head>
+
+  <body>
+    <!-- Fixed Table of Contents -->
+    <nav class="toc-fixed">
+      <div class="mb-6">
+        <h3 class="serif text-lg font-semibold text-slate-800 mb-4">目录</h3>
+        <ul class="space-y-2 text-sm">
+          <li>
+            <a href="#executive-summary" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">执行摘要</a>
+          </li>
+          <li>
+            <a href="#core-argument" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">核心论点</a>
+          </li>
+          <li>
+            <a href="#inversion-techniques" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">主要逆向技术</a>
+          </li>
+          <li>
+            <a href="#vec2text" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">Vec2Text方法</a>
+          </li>
+          <li>
+            <a href="#other-techniques" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">其他反转技术</a>
+          </li>
+          <li>
+            <a href="#effectiveness" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">攻击有效性</a>
+          </li>
+          <li>
+            <a href="#security-risks" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">安全风险</a>
+          </li>
+          <li>
+            <a href="#conclusion" class="block py-1 px-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded">结论</a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="border-t pt-4">
+        <p class="text-xs text-slate-500 mb-2">关键指标</p>
+        <div class="space-y-2 text-xs">
+          <div class="flex justify-between">
+            <span>恢复准确率</span>
+            <span class="font-semibold text-red-600">92%</span>
+          </div>
+          <div class="flex justify-between">
+            <span>单词恢复率</span>
+            <span class="font-semibold text-red-600">50-70%</span>
+          </div>
+          <div class="flex justify-between">
+            <span>BLEU分数</span>
+            <span class="font-semibold text-red-600">97.3</span>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Hero Section with Bento Grid -->
+      <section class="hero-gradient text-white py-16 px-8">
+        <div class="container mx-auto">
+          <div class="bento-grid">
+            <div class="space-y-6">
+              <h1 class="serif text-4xl sm:text-5xl font-light leading-tight">
+                <em class="text-red-300">向量数据库</em>
+                <br/>
+                逆向技术可行性研究
+              </h1>
+              <p class="text-xl text-slate-200 leading-relaxed">
+                基于嵌入反转攻击的向量数据库数据恢复技术深度分析
+              </p>
+              <div class="flex items-center space-x-4 text-sm text-slate-300">
+                <span><i class="fas fa-shield-alt mr-2"></i>安全研究</span>
+                <span><i class="fas fa-database mr-2"></i>向量数据库</span>
+                <span><i class="fas fa-code mr-2"></i>逆向工程</span>
+              </div>
+            </div>
+
+            <div class="bento-item bg-white/10 backdrop-blur-sm border-white/20">
+              <img src="" alt="向量数据库安全概念图" class="w-full h-32 object-cover rounded-lg mb-4" size="small" aspect="wide" query="向量数据库安全" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+              <p class="text-sm text-slate-200">
+                向量数据库存储的嵌入向量并非绝对安全，先进的嵌入反转攻击技术能够恢复原始人类可读数据
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Executive Summary -->
+      <section id="executive-summary" class="py-12 px-8 bg-white">
+        <div class="container mx-auto max-w-4xl">
+          <div class="mb-8">
+            <h2 class="serif text-3xl font-semibold mb-6 text-slate-800">执行摘要</h2>
+
+            <div class="grid md:grid-cols-2 gap-6 mb-8">
+              <div class="metric-card p-6 rounded-lg">
+                <div class="flex items-center mb-3">
+                  <i class="fas fa-exclamation-triangle text-red-600 text-xl mr-3"></i>
+                  <h3 class="font-semibold text-slate-800">核心发现</h3>
+                </div>
+                <p class="text-sm text-slate-600">
+                  通过<strong>嵌入反转攻击</strong>从向量数据库中恢复人类可读数据是真实可行的，向量嵌入并非如哈希函数般的单向转换。
+                </p>
+              </div>
+
+              <div class="metric-card p-6 rounded-lg">
+                <div class="flex items-center mb-3">
+                  <i class="fas fa-chart-line text-red-600 text-xl mr-3"></i>
+                  <h3 class="font-semibold text-slate-800">关键技术</h3>
+                </div>
+                <p class="text-sm text-slate-600">
+                  <strong>Vec2Text</strong>方法能够以92%的准确率精确恢复原始文本，BLEU分数达到97.3，挑战传统安全认知。
+                </p>
+              </div>
+            </div>
+
+            <div class="prose prose-slate max-w-none">
+              <p class="text-lg leading-relaxed text-slate-700">
+                本研究基于当前公开的前沿信息，深入分析了从向量数据库中逆向恢复人类可读数据的技术可行性。研究结果表明，<a href="https://ironcorelabs.com/blog/2023/embeddings-not-human-readable/" class="citation">[3]</a>
+                向量数据库存储的嵌入向量并非如传统认知那样安全，通过特定的逆向技术，特别是<strong>嵌入反转攻击（Embedding Inversion Attack）</strong>，能够有效地从嵌入向量中恢复出原始的人类可读数据。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Core Argument -->
+      <section id="core-argument" class="py-12 px-8 bg-slate-50">
+        <div class="container mx-auto max-w-4xl">
+          <h2 class="serif text-3xl font-semibold mb-8 text-slate-800">核心论点：从向量数据库恢复人类可读数据是可行的</h2>
+
+          <div class="bg-white p-8 rounded-lg shadow-sm border mb-8">
+            <blockquote class="text-xl italic text-slate-700 border-l-4 border-red-500 pl-6 mb-6">
+              &#34;嵌入向量并非完全不可逆，它们保留了原始数据的大量语义信息，这使得通过逆向工程手段恢复原始数据成为可能&#34;
+            </blockquote>
+
+            <p class="text-slate-700 leading-relaxed mb-6">
+              综合当前公开的前沿信息，可以明确论证，通过特定的逆向技术，将存储在<strong>向量数据库（Vector Database）</strong>中的向量化数据恢复为人类可读、可理解的数据是<strong>真实可行的</strong>。<a href="https://arxiv.org/html/2401.12192v3" class="citation">[23]</a>
+              <a href="https://ironcorelabs.com/blog/2023/embeddings-not-human-readable/" class="citation">[49]</a> 向量数据库通常存储的是通过<strong>嵌入模型（Embedding Model）</strong>转换后的高维向量，这些向量本身对人类而言并不直观。
+            </p>
+
+            <p class="text-slate-700 leading-relaxed mb-6">
+              研究表明，这些嵌入向量并非完全不可逆，它们保留了原始数据的大量语义信息，这使得通过逆向工程手段恢复原始数据成为可能。<a href="https://ironcorelabs.com/blog/2023/embeddings-not-human-readable/" class="citation">[3]</a>
+              <a href="https://arxiv.org/html/2401.12192v3" class="citation">[23]</a> 特别是针对文本数据，已经有多项研究成功演示了从文本嵌入中恢复原始文本的技术，例如&#34;<strong>嵌入反转攻击</strong>&#34;（Embedding Inversion Attack）。
+            </p>
+
+            <div class="bg-red-50 border border-red-200 p-6 rounded-lg">
+              <h4 class="font-semibold text-red-800 mb-3 flex items-center">
+                <i class="fas fa-lightbulb mr-2"></i>
+                关键证据
+              </h4>
+              <ul class="space-y-2 text-red-700">
+                <li>• <strong>Vec2Text方法</strong>：能够以高精度（BLEU分数97.3，精确匹配92%）从嵌入中恢复文本 <a href="http://arxiv.org/pdf/2310.06816" class="citation">[55]</a>
+                </li>
+                <li>• <strong>单词恢复率</strong>：研究证明可以从嵌入向量中恢复出50%–70%的输入单词 <a href="https://ironcorelabs.com/docs/cloaked-ai/embedding-attacks/" class="citation">[39]</a>
+                </li>
+                <li>• <strong>生成式攻击</strong>：能够重建输入的语义含义，区分细微的语义差别 <a href="https://ironcorelabs.com/docs/cloaked-ai/embedding-attacks/" class="citation">[39]</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Inversion Techniques -->
+      <section id="inversion-techniques" class="py-12 px-8 bg-white">
+        <div class="container mx-auto max-w-4xl">
+          <h2 class="serif text-3xl font-semibold mb-8 text-slate-800">主要的逆向技术：嵌入反转攻击</h2>
+
+          <div class="grid md:grid-cols-2 gap-8 mb-8">
+            <div>
+              <p class="text-slate-700 leading-relaxed mb-6">
+                <strong>嵌入反转攻击（Embedding Inversion Attack）</strong>是目前已知的、用于从向量数据库中恢复人类可读数据的主要逆向技术。该技术的核心思想是利用嵌入向量中保留的语义信息，通过特定的算法和模型，尝试重建或恢复出原始的输入数据。
+              </p>
+
+              <p class="text-slate-700 leading-relaxed">
+                这种攻击不仅限于理论层面，已有研究展示了其在实际应用中的可行性，并对依赖嵌入向量的系统（如检索增强生成RAG系统）的安全性提出了严峻挑战。<a href="https://www.mend.io/blog/vector-and-embedding-weaknesses-in-ai-systems/" class="citation">[1]</a>
+                <a href="https://www.mend.io/blog/vector-and-embedding-weaknesses-in-ai-systems/" class="citation">[50]</a>
+              </p>
+            </div>
+
+            <div class="bg-slate-50 p-6 rounded-lg">
+              <img src="https://fixedplaceholder" alt="嵌入反转攻击技术概念图" class="w-full h-48 object-cover rounded-lg mb-4" size="medium" aspect="wide" query="嵌入反转攻击" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+              <p class="text-sm text-slate-600">
+                嵌入反转攻击通过分析嵌入向量中保留的语义信息，构建从向量空间到原始数据空间的逆向映射
+              </p>
+            </div>
+          </div>
+
+          <h3 class="serif text-2xl font-semibold mb-6 text-slate-800">技术原理概述</h3>
+
+          <div class="bg-slate-50 p-8 rounded-lg mb-8">
+            <p class="text-slate-700 leading-relaxed mb-6">
+              嵌入反转攻击的技术原理主要基于对嵌入模型行为的分析和利用。嵌入模型（如文本编码器或图像编码器）将输入数据（如文本、图像）转换为固定长度的向量，这些向量在高维空间中捕获了输入数据的语义特征。
+            </p>
+
+            <div class="grid md:grid-columns-1 gap-6">
+              <div class="bg-white p-6 rounded-lg border">
+                <h4 class="font-semibold text-slate-800 mb-3 flex items-center">
+                  <i class="fas fa-cogs text-blue-600 mr-2"></i>
+                  优化问题方法
+                </h4>
+                <p class="text-sm text-slate-600">
+                  搜索一个输入数据，使得该数据经过嵌入模型后产生的嵌入向量与目标嵌入向量之间的距离（如余弦相似度）最小化 <a href="http://arxiv.org/pdf/2310.06816" class="citation">[55]</a>
+                </p>
+              </div>
+
+              <div class="bg-white p-6 rounded-lg border">
+                <h4 class="font-semibold text-slate-800 mb-3 flex items-center">
+                  <i class="fas fa-brain text-green-600 mr-2"></i>
+                  反转模型训练
+                </h4>
+                <p class="text-sm text-slate-600">
+                  训练一个专门的反转模型，学习从嵌入向量直接预测原始数据，需要文本-嵌入对数据集 <a href="https://arxiv.org/html/2401.12192v3" class="citation">[23]</a>
+                </p>
+              </div>
+
+              <div class="bg-white p-6 rounded-lg border">
+                <h4 class="font-semibold text-slate-800 mb-3 flex items-center">
+                  <i class="fas fa-search text-red-600 mr-2"></i>
+                  迭代修正
+                </h4>
+                <p class="text-sm text-slate-600">
+                  通过生成初始假设，然后根据嵌入差异来修正这些假设，直到找到与目标足够接近的输入数据
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mermaid Flow Chart -->
+          <div class="mb-8">
+            <h4 class="font-semibold text-slate-800 mb-4">嵌入反转攻击流程图</h4>
+            <div class="mermaid-container">
+              <div class="mermaid-controls">
+                <button class="mermaid-control-btn zoom-in" title="放大">
+                  <i class="fas fa-search-plus"></i>
+                </button>
+                <button class="mermaid-control-btn zoom-out" title="缩小">
+                  <i class="fas fa-search-minus"></i>
+                </button>
+                <button class="mermaid-control-btn reset-zoom" title="重置">
+                  <i class="fas fa-expand-arrows-alt"></i>
+                </button>
+                <button class="mermaid-control-btn fullscreen" title="全屏查看">
+                  <i class="fas fa-expand"></i>
+                </button>
+              </div>
+              <div class="mermaid">
+                graph TD
+                A[&#34;获取目标嵌入向量&#34;] --&gt; B[&#34;生成初始文本假设&#34;]
+                B --&gt; C[&#34;通过嵌入模型重新嵌入&#34;]
+                C --&gt; D[&#34;计算嵌入差异&#34;]
+                D --&gt; E[&#34;修正文本假设&#34;]
+                E --&gt; F{&#34;嵌入差异是否足够小?&#34;}
+                F --&gt;|&#34;否&#34;| E
+                F --&gt;|&#34;是&#34;| G[&#34;输出恢复的文本&#34;]
+
+                style A fill:#ffecb3,stroke:#1e293b,stroke-width:2px,color:#1f2937
+                style G fill:#e8f5e8,stroke:#059669,stroke-width:2px,color:#1f2937
+                style F fill:#e3f2fd,stroke:#2563eb,stroke-width:2px,color:#1f2937
+                style B fill:#f3e5f5,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+                style C fill:#f3e5f5,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+                style D fill:#f3e5f5,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+                style E fill:#f3e5f5,stroke:#7c3aed,stroke-width:2px,color:#1f2937
+              </div>
+            </div>
+          </div>
+
+          <h3 class="serif text-2xl font-semibold mb-6 text-slate-800">针对不同类型数据的反转攻击</h3>
+
+          <div class="grid md:grid-cols-2 gap-8">
+            <div class="bg-blue-50 p-6 rounded-lg">
+              <h4 class="font-semibold text-blue-800 mb-4 flex items-center">
+                <i class="fas fa-file-text mr-2"></i>
+                文本数据反转
+              </h4>
+              <p class="text-blue-700 text-sm leading-relaxed mb-4">
+                研究显示，嵌入向量可以被反转以部分恢复输入数据，在流行的句子嵌入模型上实现了<strong>50%至70%的输入单词恢复率</strong>（F1分数为0.5-0.7）。<a href="https://ironcorelabs.com/docs/cloaked-ai/embedding-attacks/" class="citation">[39]</a>
+              </p>
+              <p class="text-blue-700 text-sm leading-relaxed">
+                生成式嵌入反转攻击不仅能恢复单词，更能重建整个句子的语义含义，甚至能够区分&#34;Alice likes Bob&#34;和&#34;Bob likes Alice&#34;这样的细微语义差别。
+              </p>
+            </div>
+
+            <div class="bg-green-50 p-6 rounded-lg">
+              <h4 class="font-semibold text-green-800 mb-4 flex items-center">
+                <i class="fas fa-image mr-2"></i>
+                图像数据反转
+              </h4>
+              <p class="text-green-700 text-sm leading-relaxed mb-4">
+                模型反转攻击可以从模型输出中重建输入图像。训练基于方法将目标模型视为编码器，训练解码器网络从图像嵌入中重建原始输入图像。<a href="https://arxiv.org/html/2411.10023" class="citation">[171]</a>
+              </p>
+              <p class="text-green-700 text-sm leading-relaxed">
+                在面部识别场景中，这类攻击可以从面部表情预测模型中重建用户的面部图像，可能导致用户身份泄露。<a href="https://openaccess.thecvf.com/content/ICCV2021/papers/Zhao_Exploiting_Explanations_for_Model_Inversion_Attacks_ICCV_2021_paper.pdf" class="citation">[172]</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Vec2Text Section -->
+      <section id="vec2text" class="py-12 px-8 bg-slate-50">
+        <div class="container mx-auto max-w-4xl">
+          <h2 class="serif text-3xl font-semibold mb-8 text-slate-800">Vec2Text：迭代式文本恢复方法</h2>
+
+          <div class="bg-white p-8 rounded-lg shadow-sm border mb-8">
+            <p class="text-slate-700 leading-relaxed mb-6">
+              <strong>Vec2Text</strong>是一种先进的、迭代式的文本嵌入反转方法，由Morris等人在其研究&#34;Text Embeddings Reveal (Almost) As Much As Text&#34;中提出。<a href="http://arxiv.org/pdf/2310.06816" class="citation">[55]</a>
+              <a href="https://openreview.net/pdf?id=wK7wUdiM5g0" class="citation">[56]</a>
+            </p>
+
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+              <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600 mb-2">97.3</div>
+                <div class="text-sm text-blue-700">BLEU分数</div>
+              </div>
+              <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl font-bold text-green-600 mb-2">92%</div>
+                <div class="text-sm text-green-700">精确匹配率</div>
+              </div>
+              <div class="text-center p-4 bg-purple-50 rounded-lg">
+                <div class="text-2xl font-bold text-purple-600 mb-2">32</div>
+                <div class="text-sm text-purple-700">token长度</div>
+              </div>
+            </div>
+
+            <h3 class="serif text-xl font-semibold mb-4 text-slate-800">技术原理</h3>
+            <p class="text-slate-700 leading-relaxed mb-6">
+              Vec2Text采用了一种精巧的&#34;<strong>猜测-验证-修正</strong>&#34;循环。该方法通常包含两个主要阶段或多个迭代步骤：
+            </p>
+
+            <div class="bg-slate-50 p-6 rounded-lg mb-6">
+              <ol class="space-y-4 text-slate-700">
+                <li class="flex">
+                  <span class="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center mr-3">1</span>
+                  <div>
+                    <strong>重新嵌入 (Re-embedding)</strong>：将上一轮生成的文本假设通过原始的黑盒嵌入模型 φ 再次转换为嵌入向量 φ(x̂_iter)
+                  </div>
+                </li>
+                <li class="flex">
+                  <span class="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center mr-3">2</span>
+                  <div>
+                    <strong>计算差异 (Calculating Difference)</strong>：比较重新生成的嵌入 φ(x̂_iter) 与目标嵌入 e_target 之间的差异
+                  </div>
+                </li>
+                <li class="flex">
+                  <span class="flex-shrink-0 w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center mr-3">3</span>
+                  <div>
+                    <strong>修正文本 (Correcting Text)</strong>：修正器模型接收目标嵌入 e_target、上一轮的文本假设 x̂_iter 及其嵌入 φ(x̂_iter)，生成新的、改进的文本假设 x̂_iter+1
+                  </div>
+                </li>
+              </ol>
+            </div>
+
+            <div class="overflow-x-auto">
+              <h4 class="font-semibold text-slate-800 mb-4">Vec2Text 文本恢复性能表现</h4>
+              <table class="w-full text-sm border-collapse border border-slate-300">
+                <thead>
+                  <tr class="bg-slate-100">
+                    <th class="border border-slate-300 p-2 text-left">嵌入模型</th>
+                    <th class="border border-slate-300 p-2 text-left">数据集</th>
+                    <th class="border border-slate-300 p-2 text-left">方法</th>
+                    <th class="border border-slate-300 p-2 text-center">BLEU</th>
+                    <th class="border border-slate-300 p-2 text-center">Token F1</th>
+                    <th class="border border-slate-300 p-2 text-center">精确匹配</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="border border-slate-300 p-2">GTR-base</td>
+                    <td class="border border-slate-300 p-2">Natural Questions</td>
+                    <td class="border border-slate-300 p-2">Vec2Text [50 steps + sbeam]</td>
+                    <td class="border border-slate-300 p-2 text-center font-semibold text-red-600">97.3</td>
+                    <td class="border border-slate-300 p-2 text-center font-semibold text-red-600">99</td>
+                    <td class="border border-slate-300 p-2 text-center font-semibold text-red-600">92.0%</td>
+                  </tr>
+                  <tr>
+                    <td class="border border-slate-300 p-2">OpenAI ada-002</td>
+                    <td class="border border-slate-300 p-2">MSMARCO (32 tokens)</td>
+                    <td class="border border-slate-300 p-2">Vec2Text [50 steps + sbeam]</td>
+                    <td class="border border-slate-300 p-2 text-center">83.4</td>
+                    <td class="border border-slate-300 p-2 text-center">96</td>
+                    <td class="border border-slate-300 p-2 text-center">60.9%</td>
+                  </tr>
+                  <tr>
+                    <td class="border border-slate-300 p-2">OpenAI ada-002</td>
+                    <td class="border border-slate-300 p-2">MSMARCO (128 tokens)</td>
+                    <td class="border border-slate-300 p-2">Vec2Text [50 steps + sbeam]</td>
+                    <td class="border border-slate-300 p-2 text-center">55.0</td>
+                    <td class="border border-slate-300 p-2 text-center">84</td>
+                    <td class="border border-slate-300 p-2 text-center">8.0%</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="text-xs text-slate-500 mt-2">数据来源：<a href="http://arxiv.org/pdf/2310.06816" class="citation">[55]</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Other Techniques -->
+      <section id="other-techniques" class="py-12 px-8 bg-white">
+        <div class="container mx-auto max-w-4xl">
+          <h2 class="serif text-3xl font-semibold mb-8 text-slate-800">其他嵌入反转技术</h2>
+
+          <div class="grid md:grid-cols-2 gap-8">
+            <div class="bg-slate-50 p-6 rounded-lg">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-bolt text-yellow-600 mr-2"></i>
+                ALGEN
+              </h3>
+              <p class="text-slate-700 text-sm leading-relaxed mb-4">
+                <strong>ALGEN</strong> (Few-shot Textual Embedding Inversion Attack using ALignment and GENeration) 是一种少样本嵌入反转攻击方法。<a href="https://arxiv.org/abs/2502.11308" class="citation">[34]</a>
+                <a href="https://arxiv.org/html/2502.11308v1" class="citation">[47]</a>
+              </p>
+              <p class="text-slate-700 text-sm leading-relaxed">
+                核心创新在于通过对齐受害者的嵌入空间到攻击者自己的嵌入空间，然后利用生成模型来重建文本。仅需少量样本（例如1k数据样本）甚至单个数据点即可实现部分成功的反转攻击。
+              </p>
+            </div>
+
+            <div class="bg-slate-50 p-6 rounded-lg">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-shield-alt text-blue-600 mr-2"></i>
+                EDNN
+              </h3>
+              <p class="text-slate-700 text-sm leading-relaxed mb-4">
+                <strong>EDNN</strong> (Element-wise Differential Nearest Neighbor) 是一种专门针对经过混淆处理的嵌入矩阵的逆向攻击方法。<a href="https://aclanthology.org/2024.emnlp-main.126.pdf" class="citation">[35]</a>
+                <a href="https://aclanthology.org/2024.emnlp-main.126/" class="citation">[59]</a>
+              </p>
+              <p class="text-slate-700 text-sm leading-relaxed">
+                通过利用向量元素间的差异进行邻域检索，从预训练的嵌入矩阵中选择与混淆嵌入向量最接近的token作为真实token。能够实现<strong>高达100%的令牌恢复准确率</strong>。
+              </p>
+            </div>
+
+            <div class="bg-slate-50 p-6 rounded-lg">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-question-circle text-purple-600 mr-2"></i>
+                CEIA
+              </h3>
+              <p class="text-slate-700 text-sm leading-relaxed mb-4">
+                <strong>CEIA</strong> (Contextual Embedding Inversion Attack) 是一种针对基于BERT的问答系统的对抗性攻击方法。<a href="https://github.com/fesarikaya/CEIA" class="citation">[46]</a>
+              </p>
+              <p class="text-slate-700 text-sm leading-relaxed">
+                专注于从BERT生成的上下文词嵌入中重建原始文本，并指出在特定条件下文本重建的准确率足以构成版权侵犯的风险。
+              </p>
+            </div>
+
+            <div class="bg-slate-50 p-6 rounded-lg">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-language text-green-600 mr-2"></i>
+                MultiVec2Text
+              </h3>
+              <p class="text-slate-700 text-sm leading-relaxed mb-4">
+                <strong>MultiVec2Text</strong> 专注于多语言和跨语言设置下的文本重建。<a href="https://github.com/siebeniris/MultiVec2Text" class="citation">[37]</a>
+                <a href="https://github.com/siebeniris/MultiVec2Text" class="citation">[44]</a>
+              </p>
+              <p class="text-slate-700 text-sm leading-relaxed">
+                结合了特定的对齐和翻译机制，能够在多语言大型语言模型（LLM）环境下成功进行文本重建，显示多语言模型可能比单语言模型更容易受到反转攻击。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Effectiveness -->
+      <section id="effectiveness" class="py-12 px-8 bg-slate-50">
+        <div class="container mx-auto max-w-4xl">
+          <h2 class="serif text-3xl font-semibold mb-8 text-slate-800">嵌入反转攻击的有效性与局限性</h2>
+
+          <div class="grid md:grid-cols-2 gap-8 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-chart-line text-green-600 mr-2"></i>
+                文本恢复的准确率与效果
+              </h3>
+              <p class="text-slate-700 text-sm leading-relaxed mb-4">
+                嵌入反转攻击在文本恢复方面展现出惊人的有效性。Vec2Text方法能够以<strong>高达92%的准确率精确恢复长度为32个token的文本序列</strong>。<a href="http://arxiv.org/pdf/2310.06816" class="citation">[55]</a>
+                <a href="https://www.tonic.ai/blog/sensitive-data-in-text-embeddings-is-recoverable" class="citation">[61]</a>
+              </p>
+              <p class="text-slate-700 text-sm leading-relaxed">
+                即使是对于更长的文本，虽然完全精确匹配的难度增加，但攻击仍然能够恢复文本的核心语义信息和关键内容。
+              </p>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-image text-blue-600 mr-2"></i>
+                图像恢复的效果
+              </h3>
+              <p class="text-slate-700 text-sm leading-relaxed mb-4">
+                在面部识别场景中，模型反转攻击能够从面部表情预测模型中重建用户的面部图像，尽管重建的图像可能在细节上与原始照片有所差异，但足以用于身份识别等恶意目的。<a href="https://openaccess.thecvf.com/content/ICCV2021/papers/Zhao_Exploiting_Explanations_for_Model_Inversion_Attacks_ICCV_2021_paper.pdf" class="citation">[172]</a>
+              </p>
+              <p class="text-slate-700 text-sm leading-relaxed">
+                一些先进的模型反转方法能够生成更清晰、更具辨识度的重建图像，表明图像嵌入模型产生的嵌入向量仍然保留了足够多的特征信息。<a href="https://openreview.net/pdf?id=-WsBmzWwPee" class="citation">[376]</a>
+              </p>
+            </div>
+          </div>
+
+          <div class="bg-white p-8 rounded-lg shadow-sm border">
+            <h3 class="serif text-xl font-semibold mb-6 text-slate-800">影响攻击效果的因素</h3>
+
+            <div class="grid md:grid-cols-2 gap-6">
+              <div class="space-y-4">
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center mr-3 mt-1">
+                    <i class="fas fa-cog text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold text-slate-800 mb-1">嵌入模型性质</h4>
+                    <p class="text-sm text-slate-600">不同嵌入模型（BERT、GTR、Ada等）具有不同的架构、训练数据和目标函数，直接影响嵌入向量所包含信息的丰富程度和可逆性</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mr-3 mt-1">
+                    <i class="fas fa-text-width text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold text-slate-800 mb-1">数据长度和复杂性</h4>
+                    <p class="text-sm text-slate-600">较短的文本序列（如32个标记）通常比较长的序列更容易被准确恢复。数据的领域和分布也会产生影响</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center mr-3 mt-1">
+                    <i class="fas fa-info-circle text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold text-slate-800 mb-1">攻击者可用信息</h4>
+                    <p class="text-sm text-slate-600">知道生成嵌入向量的模型、访问嵌入模型API、训练数据的数量和质量都会显著影响攻击效果</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mr-3 mt-1">
+                    <i class="fas fa-tools text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold text-slate-800 mb-1">反转技术参数</h4>
+                    <p class="text-sm text-slate-600">Vec2Text中的迭代步数、束搜索的宽度等参数都会影响最终的恢复质量和计算成本</p>
+                  </div>
+                </div>
+
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 w-8 h-8 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mr-3 mt-1">
+                    <i class="fas fa-shield-alt text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-semibold text-slate-800 mb-1">防御措施</h4>
+                    <p class="text-sm text-slate-600">向嵌入向量中添加噪声是一种常见的防御手段，Vec2Text在应用于经过噪声扰动的嵌入向量时效果会变差</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Security Risks -->
+      <section id="security-risks" class="py-12 px-8 bg-white">
+        <div class="container mx-auto max-w-4xl">
+          <h2 class="serif text-3xl font-semibold mb-8 text-slate-800">向量数据库的安全风险与启示</h2>
+
+          <div class="bg-red-50 border border-red-200 p-8 rounded-lg mb-8">
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-red-600 text-2xl mr-4"></i>
+              </div>
+              <div>
+                <h3 class="font-semibold text-red-800 mb-4">嵌入向量并非绝对安全</h3>
+                <p class="text-red-700 leading-relaxed mb-4">
+                  一个普遍的误解是，由于嵌入向量本身是一系列对人类而言难以直接理解的数字，因此它们可以被视为一种安全的、经过匿名化处理的数据形式。然而，多项研究已经有力地驳斥了这一观点。<a href="https://ironcorelabs.com/blog/2023/embeddings-not-human-readable/" class="citation">[3]</a>
+                  <a href="https://arxiv.org/html/2401.12192v3" class="citation">[23]</a>
+                </p>
+                <p class="text-red-700 leading-relaxed">
+                  嵌入向量并非像密码学哈希函数那样是单向的、不可逆的转换。相反，它们被设计用来捕捉和保留原始数据的丰富语义信息，以便机器学习模型能够有效地进行处理和比较。<a href="https://pub.aimind.so/understanding-embeddings-and-the-privacy-risk-of-inverting-them-vec2text-explained-0565e6031321" class="citation">[22]</a>
+                  <a href="http://arxiv.org/pdf/2310.06816" class="citation">[55]</a>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-8 mb-8">
+            <div class="bg-slate-50 p-6 rounded-lg">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-database text-orange-600 mr-2"></i>
+                对向量数据库安全性的警示
+              </h3>
+              <p class="text-slate-700 text-sm leading-relaxed mb-4">
+                向量数据库通常存储着大量的、可能包含敏感信息的嵌入向量，例如在检索增强生成（RAG）系统中。如果这些向量数据库缺乏足够的安全防护，就可能成为攻击者的目标。<a href="https://www.mend.io/blog/vector-and-embedding-weaknesses-in-ai-systems/" class="citation">[1]</a>
+                <a href="https://www.mend.io/blog/vector-and-embedding-weaknesses-in-ai-systems/" class="citation">[50]</a>
+              </p>
+              <p class="text-slate-700 text-sm leading-relaxed">
+                攻击者可能通过各种手段获取对向量数据库中存储的嵌入向量的访问权限，例如利用系统漏洞、内部威胁、或者通过窃听应用程序与向量数据库之间的通信。
+              </p>
+            </div>
+
+            <div class="bg-slate-50 p-6 rounded-lg">
+              <h3 class="font-semibold text-slate-800 mb-4 flex items-center">
+                <i class="fas fa-lock text-blue-600 mr-2"></i>
+                安全建议
+              </h3>
+              <ul class="space-y-2 text-slate-700 text-sm">
+                <li class="flex items-start">
+                  <i class="fas fa-check text-green-600 mr-2 mt-1 text-xs"></i>
+                  对嵌入向量进行加密或混淆处理
+                </li>
+                <li class="flex items-start">
+                  <i class="fas fa-check text-green-600 mr-2 mt-1 text-xs"></i>
+                  实施严格的访问控制和权限管理
+                </li>
+                <li class="flex items-start">
+                  <i class="fas fa-check text-green-600 mr-2 mt-1 text-xs"></i>
+                  监控和审计对向量数据库的访问和查询
+                </li>
+                <li class="flex items-start">
+                  <i class="fas fa-check text-green-600 mr-2 mt-1 text-xs"></i>
+                  研究和部署针对嵌入反转攻击的防御机制
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="bg-blue-50 border border-blue-200 p-6 rounded-lg">
+            <div class="flex items-start">
+              <div class="flex-shrink-0">
+                <i class="fas fa-lightbulb text-blue-600 text-xl mr-4"></i>
+              </div>
+              <div>
+                <h4 class="font-semibold text-blue-800 mb-3">关键洞察</h4>
+                <p class="text-blue-700 text-sm leading-relaxed">
+                  Mend.io明确指出，<strong>向量数据库通常缺乏成熟的安全控制机制</strong>，许多设计更侧重于速度和可扩展性，而非对抗性环境，这使得它们成为攻击者窃取敏感数据、污染数据或操纵AI行为的理想目标。因此，开发者和运维人员必须充分认识到向量数据库所面临的安全风险，并采取积极有效的措施来加强其安全性。<a href="https://www.mend.io/blog/vector-and-embedding-weaknesses-in-ai-systems/" class="citation">[50]</a>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Conclusion -->
+      <section id="conclusion" class="py-12 px-8 bg-slate-50">
+        <div class="container mx-auto max-w-4xl">
+          <h2 class="serif text-3xl font-semibold mb-8 text-slate-800">结论</h2>
+
+          <div class="bg-white p-8 rounded-lg shadow-sm border">
+            <div class="prose prose-slate max-w-none">
+              <p class="text-lg leading-relaxed text-slate-700 mb-6">
+                基于当前公开的前沿研究证据，我们可以明确得出结论：<strong>通过逆向技术从向量数据库中恢复人类可读的数据不仅是理论上的可能性，更是经过实验验证的真实威胁</strong>。
+              </p>
+
+              <div class="grid md:grid-cols-2 gap-8 mb-8">
+                <div>
+                  <h3 class="font-semibold text-slate-800 mb-4">核心发现</h3>
+                  <ul class="space-y-3 text-slate-700">
+                    <li class="flex items-start">
+                      <i class="fas fa-check-circle text-green-600 mr-3 mt-1"></i>
+                      嵌入反转攻击是可行且有效的逆向技术
+                    </li>
+                    <li class="flex items-start">
+                      <i class="fas fa-check-circle text-green-600 mr-3 mt-1"></i>
+                      Vec2Text方法实现高达92%的精确匹配率
+                    </li>
+                    <li class="flex items-start">
+                      <i class="fas fa-check-circle text-green-600 mr-3 mt-1"></i>
+                      向量嵌入保留原始数据的丰富语义信息
+                    </li>
+                    <li class="flex items-start">
+                      <i class="fas fa-check-circle text-green-600 mr-3 mt-1"></i>
+                      多项研究证实50-70%的单词恢复率
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 class="font-semibold text-slate-800 mb-4">安全启示</h3>
+                  <ul class="space-y-3 text-slate-700">
+                    <li class="flex items-start">
+                      <i class="fas fa-exclamation-triangle text-red-600 mr-3 mt-1"></i>
+                      向量数据库需要加强安全防护措施
+                    </li>
+                    <li class="flex items-start">
+                      <i class="fas fa-exclamation-triangle text-red-600 mr-3 mt-1"></i>
+                      嵌入向量应被视为敏感数据进行保护
+                    </li>
+                    <li class="flex items-start">
+                      <i class="fas fa-exclamation-triangle text-red-600 mr-3 mt-1"></i>
+                      需要开发针对嵌入反转的防御机制
+                    </li>
+                    <li class="flex items-start">
+                      <i class="fas fa-exclamation-triangle text-red-600 mr-3 mt-1"></i>
+                      组织需要重新评估向量数据库的安全策略
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="bg-slate-50 p-6 rounded-lg">
+                <blockquote class="text-lg italic text-slate-700 text-center">
+                  &#34;向量数据库的安全不容忽视。嵌入向量必须被视为敏感数据，并采取与保护原始数据相同的甚至更严格的隐私保护措施。&#34;
+                </blockquote>
+              </div>
+
+              <p class="text-slate-700 leading-relaxed mt-8">
+                未来的研究方向应包括开发更强大的嵌入反转防御技术，建立向量数据库的安全标准和最佳实践，以及在设计阶段就考虑隐私保护的嵌入模型架构。只有通过多方位的安全防护，才能确保向量数据库在发挥其强大功能的同时，不会成为数据泄露的新漏洞。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="py-8 px-8 bg-slate-800 text-white">
+        <div class="container mx-auto max-w-4xl">
+          <div class="grid md:grid-cols-3 gap-8">
+            <div>
+              <h4 class="font-semibold mb-4">关于本研究</h4>
+              <p class="text-slate-300 text-sm">
+                基于当前公开的前沿研究，深入分析向量数据库逆向技术的可行性和安全风险。
+              </p>
+            </div>
+            <div>
+              <h4 class="font-semibold mb-4">关键技术</h4>
+              <ul class="text-slate-300 text-sm space-y-1">
+                <li>• 嵌入反转攻击</li>
+                <li>• Vec2Text方法</li>
+                <li>• 模型反转技术</li>
+                <li>• 向量数据库安全</li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="font-semibold mb-4">重要提醒</h4>
+              <p class="text-slate-300 text-sm">
+                本研究报告仅用于学术和安全研究目的，旨在提高向量数据库的安全意识。
+              </p>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-700 mt-8 pt-8 text-center">
+            <p class="text-slate-400 text-sm">
+              研究报告 • 向量数据库安全分析 • 2025
+            </p>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+        // Initialize Mermaid with enhanced styling
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#f8fafc',
+                primaryTextColor: '#1f2937',
+                primaryBorderColor: '#374151',
+                lineColor: '#6b7280',
+                secondaryColor: '#f3f4f6',
+                tertiaryColor: '#ffffff',
+                background: '#ffffff',
+                mainBkg: '#ffffff',
+                secondBkg: '#f9fafb',
+                // Enhanced contrast colors
+                cScale0: '#ffecb3',
+                cScale1: '#e8f5e8', 
+                cScale2: '#e3f2fd',
+                cScale3: '#f3e5f5',
+                cScale4: '#fff3e0',
+                cScale5: '#fce4ec',
+                // Text colors with better contrast
+                primaryTextColor: '#1f2937',
+                secondaryTextColor: '#1f2937',
+                tertiaryTextColor: '#1f2937',
+                textColor: '#1f2937',
+                // Border colors
+                primaryBorderColor: '#374151',
+                secondaryBorderColor: '#6b7280',
+                tertiaryBorderColor: '#9ca3af'
+            },
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis',
+                padding: 20
+            },
+            fontSize: 14,
+            fontFamily: 'Inter, sans-serif'
+        });
+
+        // Initialize Mermaid controls
+        initializeMermaidControls();
+
+        // Initialize Mermaid Controls for zoom and pan
+        function initializeMermaidControls() {
+            const containers = document.querySelectorAll('.mermaid-container');
+
+            containers.forEach(container => {
+            const mermaidElement = container.querySelector('.mermaid');
+            let scale = 1;
+            let isDragging = false;
+            let startX, startY, translateX = 0, translateY = 0;
+
+            // 触摸相关状态
+            let isTouch = false;
+            let touchStartTime = 0;
+            let initialDistance = 0;
+            let initialScale = 1;
+            let isPinching = false;
+
+            // Zoom controls
+            const zoomInBtn = container.querySelector('.zoom-in');
+            const zoomOutBtn = container.querySelector('.zoom-out');
+            const resetBtn = container.querySelector('.reset-zoom');
+            const fullscreenBtn = container.querySelector('.fullscreen');
+
+            function updateTransform() {
+                mermaidElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+                if (scale > 1) {
+                container.classList.add('zoomed');
+                } else {
+                container.classList.remove('zoomed');
+                }
+
+                mermaidElement.style.cursor = isDragging ? 'grabbing' : 'grab';
+            }
+
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', () => {
+                scale = Math.min(scale * 1.25, 4);
+                updateTransform();
+                });
+            }
+
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', () => {
+                scale = Math.max(scale / 1.25, 0.3);
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+                updateTransform();
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                scale = 1;
+                translateX = 0;
+                translateY = 0;
+                updateTransform();
+                });
+            }
+
+            if (fullscreenBtn) {
+                fullscreenBtn.addEventListener('click', () => {
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
+                }
+                });
+            }
+
+            // Mouse Events
+            mermaidElement.addEventListener('mousedown', (e) => {
+                if (isTouch) return; // 如果是触摸设备，忽略鼠标事件
+
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                mermaidElement.style.cursor = 'grabbing';
+                updateTransform();
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging && !isTouch) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseleave', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            // 获取两点之间的距离
+            function getTouchDistance(touch1, touch2) {
+                return Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+                );
+            }
+
+            // Touch Events - 触摸事件处理
+            mermaidElement.addEventListener('touchstart', (e) => {
+                isTouch = true;
+                touchStartTime = Date.now();
+
+                if (e.touches.length === 1) {
+                // 单指拖动
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+
+                } else if (e.touches.length === 2) {
+                // 双指缩放
+                isPinching = true;
+                isDragging = false;
+
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                initialDistance = getTouchDistance(touch1, touch2);
+                initialScale = scale;
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isDragging && !isPinching) {
+                // 单指拖动
+                const touch = e.touches[0];
+                translateX = touch.clientX - startX;
+                translateY = touch.clientY - startY;
+                updateTransform();
+
+                } else if (e.touches.length === 2 && isPinching) {
+                // 双指缩放
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = getTouchDistance(touch1, touch2);
+
+                if (initialDistance > 0) {
+                    const newScale = Math.min(Math.max(
+                    initialScale * (currentDistance / initialDistance),
+                    0.3
+                    ), 4);
+                    scale = newScale;
+                    updateTransform();
+                }
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchend', (e) => {
+                // 重置状态
+                if (e.touches.length === 0) {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                // 延迟重置isTouch，避免鼠标事件立即触发
+                setTimeout(() => {
+                    isTouch = false;
+                }, 100);
+                } else if (e.touches.length === 1 && isPinching) {
+                // 从双指变为单指，切换为拖动模式
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+                }
+
+                updateTransform();
+            });
+
+            mermaidElement.addEventListener('touchcancel', (e) => {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                setTimeout(() => {
+                isTouch = false;
+                }, 100);
+
+                updateTransform();
+            });
+
+            // Enhanced wheel zoom with better center point handling
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.min(Math.max(scale * delta, 0.3), 4);
+
+                // Adjust translation to zoom towards center
+                if (newScale !== scale) {
+                const scaleDiff = newScale / scale;
+                translateX = translateX * scaleDiff;
+                translateY = translateY * scaleDiff;
+                scale = newScale;
+
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+
+                updateTransform();
+                }
+            });
+
+            // Initialize display
+            updateTransform();
+            });
+        }
+
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Highlight current section in TOC
+        const observerOptions = {
+            root: null,
+            rootMargin: '-20% 0px -80% 0px',
+            threshold: 0
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const id = entry.target.getAttribute('id');
+                const tocLink = document.querySelector(`a[href="#${id}"]`);
+                if (tocLink) {
+                    if (entry.isIntersecting) {
+                        document.querySelectorAll('.toc-fixed a').forEach(link => {
+                            link.classList.remove('bg-slate-200', 'text-slate-900');
+                        });
+                        tocLink.classList.add('bg-slate-200', 'text-slate-900');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('section[id]').forEach(section => {
+            observer.observe(section);
+        });
+    </script>
+  
+
+</body></html>
