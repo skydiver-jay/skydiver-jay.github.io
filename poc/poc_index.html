@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>PoC Index</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;background:#f4f4f4;margin:0;padding:40px}
+  .wrap{max-width:480px;margin:auto;background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  input[type=text]{width:100%;padding:10px;font-size:16px;border:1px solid #bbb;border-radius:4px;margin-bottom:15px;box-sizing:border-box}
+  button{padding:10px 25px;font-size:16px;border:none;border-radius:4px;background:#007acc;color:#fff;cursor:pointer}
+  button:hover{background:#005a9e}
+  #newBtnWrap{margin-top:25px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>输入暗号</h2>
+  <input type="text" id="vid" placeholder="在此输入暗号1" />
+  <input type="text" id="pass" placeholder="在此输入暗号2" />
+  <button onclick="createBtn()">Go</button>
+
+  <div id="newBtnWrap"></div>
+</div>
+
+<!-- 引入 CryptoJS 计算 MD5（极轻量，可离线使用） -->
+<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+<script>
+  function createBtn() {
+    const val1 = document.getElementById('vid').value.trim();
+	const val2 = document.getElementById('pass').value.trim();
+    if (!val1) {
+      alert('请先输入内容！');
+      return;
+    }
+	
+	if (!val2) {
+      alert('请先输入内容！');
+      return;
+    }
+
+    // 计算 MD5 并转小写
+    const hash = CryptoJS.MD5(val1+val2).toString().toLowerCase();
+
+    // 固定前缀 + MD5
+    const targetUrl = `https://skydiver-jay.github.io/poc/${val1}/${hash}/poc.html`;
+
+    // 获取/清空容器
+    const wrap = document.getElementById('newBtnWrap');
+    wrap.innerHTML = ''; // 如需保留历史按钮可注释此行
+
+    // 创建新按钮
+    const btn = document.createElement('button');
+    btn.textContent = `Go Poc`;
+    btn.onclick = () => window.location.href = targetUrl;
+    wrap.appendChild(btn);
+  }
+</script>
+</body>
+</html>
